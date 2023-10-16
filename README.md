@@ -1,92 +1,146 @@
 # Cosmos Deploy Script
 
+## Purpose
 
+This script can be used to configure and launch cosmos blockchains. You can choose how many validators the blockchain has and connected blockchains over IBC. Currently, you can launch "gaia" chains and "evmos" chains. Gaia is the same type of blockchain as Cosmos Hub. Evmos is a cosmos chain that also has the evm.
 
-## Getting started
+## Disclaimer
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Currently, you **must** evmos v12.0.x if you would like to deploy evmos chains. The most recent version of gaia is compatible. To use other cosmos chains, like ones created using Ignite CLI, you will need to modify the script.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## Background
 
-## Add your files
+All cosmos blockchains are build in a similar way. There is a Makefile in the root directory of cosmos chains that allow you to build an executable for that chain. This script assumes that the appropriate executable has already been built. This means that you can modify the blockchain source code as much as you like. As long as you recompile the blockchain to an executable, this script can be used to deploy that blockchain.
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## Deploying a Blockchain
 
+### 1. Download the blockchain source code
+
+The first step is to download the source code for the blockchain you would like to deploy. For instance, this is done for gaia using the following command:
+
+```bash
+git clone https://github.com/cosmos/gaia.git
 ```
-cd existing_repo
-git remote add origin https://git.uwaterloo.ca/sldavids/cosmos-deploy-script.git
-git branch -M main
-git push -uf origin main
+
+From now on, all operations will be preformed from the root directory of this git repository.
+
+### 2. Compile the executable
+
+Next, you must compile the executable for that blockchain. How you do this depends on the blockchain. Typically, you may do so by running the following commands
+
+```bash
+make clean && make install
 ```
 
-## Integrate with your tools
+from the root directory. Once the executable has been build, you must move it into the chain's build directory. You can typically do so by running the following command from the root directory.
 
-- [ ] [Set up project integrations](https://git.uwaterloo.ca/sldavids/cosmos-deploy-script/-/settings/integrations)
+```bash
+cp $(which <executable name>) ./build/
+```
 
-## Collaborate with your team
+For gaia, this would be...
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+```bash
+cp $(which gaiad) ./build/
+```
 
-## Test and Deploy
+### 3. Import the script
 
-Use the built-in continuous integration in GitLab.
+Copy *deploy.sh*, *DockerfileChain* and *DockerfileRelayer* into the root directory. Edit *DockerfileChain* to copy the intended executable. The example *DockerfileChain* copies over the executable for evmos.
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### 4. Set Docker Environment Variable
 
-***
+Export the docker username environment variable
 
-# Editing this README
+```bash
+export DOCKER_USERNAME=<docker username>
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### 5. Create Overlay Network
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+The overlay network is used for interblockchain communication. The standard network is used for internode communication for the same blockchain. Enter the command:
 
-## Name
-Choose a self-explaining name for your project.
+```bash
+./deploy.sh create-overlay
+```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### 6. Enter the start command
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Run the following command:
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+./deploy.sh start <chain type> <chain name> <num validators> <id> --build --network
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Some important notes:
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+- The chain type can be either "gaia" or "evmos".
+- Chain name can be any string.
+- Number of validators must be between 1 and 255 inclusive.
+- The chain id is an integer of at most 255. There may be further restrictions depending on the blockchain. For example, you should use number in [5, 255] for evmos, as numbers 1-4 are reserved.
+- The build flag should only be used once per new blockchain build.
+- The network flag sets up a network for the docker containers. This needs to be done only once.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Example:
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+```bash
+./deploy.sh start evmos earth 4 5
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+The above commands starts an evmos blockchain with 4 validators and with chain id 5 (translated internally as evmos_9000-5).
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### 7. Inspect Containers
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+You can list the running containers using "docker container list". You can check a container's logs using the docker logs command. Furthermore, you can enter a container to perform additional commands. Each container has the executable for the blockchain stored in the working directory. The home directory for the blockchain is in the home directory, and is called either "evmos" or "gaia".
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+## Connecting Blockchains over IBC
 
-## License
-For open source projects, say how it is licensed.
+To connect blockchains over IBC, you must have multiple blockchains running. To create a relayer for both blockchains, enter the following command:
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+./deploy.sh relayer <chain type> <chain A id> <chain B id> <chain A node> <chain B node> --swarm
+```
+Some important notes:
+
+- The chain type can be either "gaia" or "evmos".
+- Chain ids are the integers assigned to the blockchains upon creation (see section on deploying blockchains).
+- The node is a value from [0, number of validators - 1]. By default, only nodes "0" are connected to the overlay network. Should you wish to use different nodes, you must first connect those nodes to the overlay network. This is done using the command **docker network connect baton-overlay "container name"**.
+- The swarm command connects the relayer to the overlay network.
+
+The relayer container is configured with the Hermes relayer. Once the container is running, you must enter into that container's shell. From there, you can use Hermes commands.
+
+Use the command
+
+```bash
+hermes --config config.toml create channel --a-chain <chain a> --b-chain <chain b> --a-port transfer --b-port transfer --new-client-connection
+```
+
+to create a connection between two chains. An example for evmos is as follows:
+
+```bash
+hermes --config config.toml create channel --a-chain evmos_9000-5 --b-chain evmos_9000-6 --a-port transfer --b-port transfer --new-client-connection
+```
+
+Once the connection has been created, start the relayer using the following command:
+
+```bash
+hermes --config config.toml start
+```
+
+## Stopping The Containers
+
+To stop a blockchain, run the command:
+
+```bash
+./deploy.sh stop <chain name>
+```
+
+To stop a relayer, run the command:
+
+```bash
+./deploy.sh relayer-stop <chain A/B id> <chain B/A id>
+```
+
+## Blockchains on Different Servers
+
+The overlay network allows you to connect blockchains running on different servers. It is important that the blockchain repository is shared on the servers (so that they can access the same build/ directory). Furthermore, you must have the servers all join the same overlay network. For more information on the overlay network driver, please see https://docs.docker.com/network/drivers/overlay/
